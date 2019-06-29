@@ -29,6 +29,7 @@ from donkeycar.parts.throttle_filter import ThrottleFilter
 from donkeycar.parts.behavior import BehaviorPart
 from donkeycar.parts.file_watcher import FileWatcher
 from donkeycar.parts.launch import AiLaunch
+from donekycar.parts.cv import ImgRegionOfInterest
 
 def drive(cfg, model_path=None, use_joystick=False, model_type=None, camera_type='single', meta=[] ):
     '''
@@ -259,6 +260,15 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, camera_type
         V.add(imu, outputs=['imu/acl_x', 'imu/acl_y', 'imu/acl_z',
             'imu/gyr_x', 'imu/gyr_y', 'imu/gyr_z'], threaded=True)
 
+    # region of interest masking for auto pilot only with linear or categorical models
+    if cfg.ROI_REGION is not None:
+        if model_type == 'linear' or model_type == 'categorical':
+            roi_mask = ImgRegionOfInterest((cfg.IMAGE_H, cfg.IMAGE_W, cfg.IMAGE_DEPTH), cfg.ROI_REGION)
+            V.add(roi_mask, 
+                inputs = ['cam/image_array'], 
+                outputs = ['roi/image_array'],
+                run_condition='run_pilot')
+
     #Behavioral state
     if cfg.TRAIN_BEHAVIORS:
         bh = BehaviorPart(cfg.BEHAVIOR_LIST)
@@ -267,8 +277,8 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, camera_type
             ctr.set_button_down_trigger('L1', bh.increment_state)
         except:
             pass
-
         inputs = ['cam/image_array', "behavior/one_hot_state_array"]  
+
     #IMU
     elif model_type == "imu":
         assert(cfg.HAVE_IMU)
@@ -276,6 +286,8 @@ def drive(cfg, model_path=None, use_joystick=False, model_type=None, camera_type
         inputs=['cam/image_array',
             'imu/acl_x', 'imu/acl_y', 'imu/acl_z',
             'imu/gyr_x', 'imu/gyr_y', 'imu/gyr_z']
+    elif (model_type == 'linear' or model_type == 'categorical') and cfg.ROI_REGION is not None:
+        inputs=['roi/image_array']
     else:
         inputs=['cam/image_array']
 

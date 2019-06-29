@@ -70,6 +70,12 @@ PRUNE_EVAL_PERCENT_OF_DATASET = .05  # percent of dataset used to perform evalua
 ROI_CROP_TOP = 0
 ROI_CROP_BOTTOM = 0
 
+# Region of interest masking
+# Region mask is applied at train time and drive time with autopilot, 
+# so it does NOT alter data gathered by human pilot.
+# it is applied AFTER any cropping, so polygons should be in the cropped space
+ROI_REGION = None # array of closed integer polygons like [[(0, 95), (0, 120), (160, 120), (160, 95), (80, 45), (40, 45)]], or None
+
 #model transfer options
 FREEZE_LAYERS = False
 NUM_LAST_LAYERS_TO_TRAIN = 7

@@ -39,6 +39,7 @@ from donkeycar.parts.keras import KerasLinear, KerasIMU,\
      KerasCategorical, KerasBehavioral, Keras3D_CNN,\
      KerasRNN_LSTM, KerasLatent
 from donkeycar.parts.augment import augment_image
+from donkeycar.parts.cv import region_of_interest
 from donkeycar.utils import *
 
 
@@ -360,8 +361,12 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
     print('collating %d records ...' % (len(records)))
     collate_records(records, gen_records, opts)
 
+    # if config specifies a region of interest, create the lambda function to apply the mask
+    if cfg.ROI_REGION is not None:
+        opts['roi_mask'] = region_of_interest((cfg.IMAGE_H, cfg.IMAGE_W, cfg.IMAGE_DEPTH), cfg.ROI_REGION)
+
     def generator(save_best, opts, data, batch_size, isTrainSet=True, min_records_to_train=1000):
-        
+
         num_records = len(data)
 
         while True:
@@ -446,6 +451,11 @@ def train(cfg, tub_names, model_name, transfer_model, model_type, continuous, au
                             if img_arr is None:
                                 break
                             
+                            # apply region of interest to erase areas we don't care about 
+                            roi_mask = opts['roi_mask']
+                            if roi_mask is not None:
+                                img_arr = roi_mask(img_arr)
+
                             if aug:
                                 img_arr = augment_image(img_arr)
 
@@ -819,6 +829,12 @@ def sequence_train(cfg, tub_names, model_name, transfer_model, model_type, conti
                                 img_arr = load_scaled_image_arr(record['image_path'], cfg)
                                 if img_arr is None:
                                     break
+                            
+                                # apply region of interest to erase areas we don't care about 
+                                roi_mask = opt['roi_mask']
+                                if roi_mask is not None:
+                                    img_arr = roi_mask(img_arr)
+
                                 if aug:
                                     img_arr = augment_image(img_arr)
                                 
@@ -862,6 +878,11 @@ def sequence_train(cfg, tub_names, model_name, transfer_model, model_type, conti
                 yield X, y
 
     opt = { 'look_ahead' : look_ahead, 'cfg' : cfg }
+
+    # if config specifies a region of interest, create the lambda function to apply the mask
+    if cfg.ROI_REGION is not None:
+        opt['roi_mask'] = region_of_interest((cfg.IMAGE_H, cfg.IMAGE_W, cfg.IMAGE_DEPTH), cfg.ROI_REGION)
+
 
     train_gen = generator(train_data, opt)
     val_gen = generator(val_data, opt)   
